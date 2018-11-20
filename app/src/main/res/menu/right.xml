@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:context="com.example.menutest.MainActivity">
+
+    <item
+        android:id="@+id/single"
+        android:orderInCategory="100"
+        android:title="单选"
+        tools:ignore="AppCompatResource"/>
+
+    <item
+        android:id="@+id/more"
+        android:orderInCategory="200"
+        android:showAsAction="never"
+        android:title="多选"
+        tools:ignore="AppCompatResource"/>
+    <item
+        android:id="@+id/limit"
+        android:orderInCategory="200"
+        android:title="限制选择3个"
+        tools:ignore="AppCompatResource"/>
+
+</menu>
