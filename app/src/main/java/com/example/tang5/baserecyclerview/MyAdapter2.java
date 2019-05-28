@@ -6,12 +6,13 @@ import com.chad.library.adapter.base.BaseViewHolder;
 
 import java.util.List;
 
-public class MyAdapter extends BaseSelectAdapter<TestBean, BaseSelectAdapter.SelecteViewHolder> {
-	public MyAdapter(int layoutResId, @Nullable List<TestBean> data, int selectViewId) {
-		super(layoutResId, data, selectViewId);
+public class MyAdapter2 extends BaseSelectAdapter2<TestBean, BaseSelectAdapter2.SelecteViewHolder> {
+
+	public MyAdapter2(int layoutResId, @Nullable List<TestBean> data, SelectAdapterConfigeration configeration) {
+		super(layoutResId, data, configeration);
 	}
 
-	public MyAdapter(int layoutResId, @Nullable List<TestBean> data) {
+	public MyAdapter2(int layoutResId, @Nullable List<TestBean> data) {
 		super(layoutResId, data);
 	}
 

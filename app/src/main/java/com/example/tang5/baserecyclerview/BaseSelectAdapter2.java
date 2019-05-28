@@ -18,23 +18,8 @@ import java.util.Set;
  * @author thf
  * 获取数据
  */
-public abstract class BaseSelectAdapter<T, B extends BaseSelectAdapter.SelecteViewHolder> extends BaseQuickAdapter<T, B> {
-	/**
-	 * 选中条目的列表
-	 */
-	private Set<Integer> mSelectedList = new HashSet<>();
-	/**
-	 * 选中事件操作
-	 */
-	private OnSelectListener mOnSelectListener;
-	/**
-	 * 点击事件操作，先于执行刷新
-	 */
-	private OnTagClickListener mOnTagClickListener;
-	/**
-	 * 最大选中个数  -1表示全选  其他数值表示限制个数
-	 */
-	private double mSelectedMax = -1;
+public abstract class BaseSelectAdapter2<T, B extends BaseSelectAdapter2.SelecteViewHolder> extends BaseQuickAdapter<T, B> {
+	private SelectAdapterConfigeration mConfigeration;
 	/**
 	 * 出发事件id
 	 */
@@ -48,28 +33,19 @@ public abstract class BaseSelectAdapter<T, B extends BaseSelectAdapter.SelecteVi
 	 */
 	private boolean isNotAssociate = true;
 
-	public interface OnSelectListener {
-		void onSelected(Set<Integer> selectPosSet);
-	}
-
-	public interface OnTagClickListener<B extends BaseSelectAdapter.SelecteViewHolder> {
-		boolean onTagClick(B b, int position);
-	}
-
-
-	public BaseSelectAdapter(int layoutResId, @Nullable List<T> data, int selectViewId) {
+	public BaseSelectAdapter2(int layoutResId, @Nullable List<T> data, SelectAdapterConfigeration configeration) {
 		super(layoutResId, data);
-
+		mConfigeration = configeration;
 		//设置默认值
-		if (selectViewId != 0) {
-			this.selectViewId = selectViewId;
+		if (configeration.getSelectViewId() != 0) {
+			this.selectViewId = configeration.getSelectViewId();
 		} else {
 			this.selectViewId = R.id.checkbox;
 		}
 	}
 
-	public BaseSelectAdapter(int layoutResId, @Nullable List<T> data) {
-		this(layoutResId, data, 0);
+	public BaseSelectAdapter2(int layoutResId, @Nullable List<T> data) {
+		this(layoutResId, data, new SelectAdapterConfigeration.Builder().but(null, null, 3));
 	}
 
 	@Override
@@ -82,7 +58,7 @@ public abstract class BaseSelectAdapter<T, B extends BaseSelectAdapter.SelecteVi
 	@Override
 	protected void convert(final B helper, T item) {
 		Log.e(TAG, "convert: " + System.currentTimeMillis());
-		if (mSelectedList.contains(helper.getAdapterPosition())) {
+		if (mConfigeration.getSelectedList().contains(helper.getAdapterPosition())) {
 			helper.setChecked(selectViewId, true);
 		} else {
 			helper.setChecked(selectViewId, false);
@@ -92,8 +68,8 @@ public abstract class BaseSelectAdapter<T, B extends BaseSelectAdapter.SelecteVi
 				@Override
 				public void onClick(View v) {
 					//执行点击事件
-					if (mOnTagClickListener != null) {
-						mOnTagClickListener.onTagClick(helper, helper.getAdapterPosition());
+					if (mConfigeration.getOnTagClickListener() != null) {
+						mConfigeration.getOnTagClickListener().onTagClick(helper, helper.getAdapterPosition());
 					}
 					doSelect(helper, helper.mCheckBox, helper.getAdapterPosition());
 				}
@@ -103,8 +79,8 @@ public abstract class BaseSelectAdapter<T, B extends BaseSelectAdapter.SelecteVi
 				@Override
 				public void onClick(View v) {
 					//执行点击事件
-					if (mOnTagClickListener != null) {
-						mOnTagClickListener.onTagClick(helper, helper.getAdapterPosition());
+					if (mConfigeration.getOnTagClickListener() != null) {
+						mConfigeration.getOnTagClickListener().onTagClick(helper, helper.getAdapterPosition());
 					}
 					doSelect(helper, helper.mCheckBox, helper.getAdapterPosition());
 				}
@@ -131,32 +107,32 @@ public abstract class BaseSelectAdapter<T, B extends BaseSelectAdapter.SelecteVi
 		}
 		if (isChecked) {
 			//处理max_select=1的情况
-			if (mSelectedMax == 1 && mSelectedList.size() == 1) {
-				Iterator<Integer> iterator = mSelectedList.iterator();
+			if (mConfigeration.getSelectedMax() == 1 && mConfigeration.getSelectedList().size() == 1) {
+				Iterator<Integer> iterator = mConfigeration.getSelectedList().iterator();
 				Integer preIndex = iterator.next();
 
 				setChildChecked(helper, position, child);
-				mSelectedList.remove(preIndex);
-				mSelectedList.add(position);
+				mConfigeration.getSelectedList().remove(preIndex);
+				mConfigeration.getSelectedList().add(position);
 				//内部通过handle刷新
 				notifyItemChanged(preIndex);
 				Log.e(TAG, "doSelect: " + System.currentTimeMillis());
 			} else {
-				if (mSelectedMax > 0 && mSelectedList.size() >= mSelectedMax) {
+				if (mConfigeration.getSelectedMax() > 0 && mConfigeration.getSelectedList().size() >= mConfigeration.getSelectedMax()) {
 					//当操作限制范围的时候 将超出的设置为不选中状态
 					setChildUnChecked(helper, position, child);
 					return;
 				}
 				setChildChecked(helper, position, child);
-				mSelectedList.add(position);
+				mConfigeration.getSelectedList().add(position);
 			}
 		} else {
 			//取消选中按钮逻辑
-			if (forceHasOne && mSelectedMax == 1) {
-				
-			}else {
+			if (forceHasOne && mConfigeration.getSelectedMax() == 1) {
+
+			} else {
 				setChildUnChecked(helper, position, child);
-				mSelectedList.remove(position);
+				mConfigeration.getSelectedList().remove(position);
 			}
 		}
 	}
@@ -183,8 +159,8 @@ public abstract class BaseSelectAdapter<T, B extends BaseSelectAdapter.SelecteVi
 	private void setChildChecked(B helper, int position, View view) {
 		helper.mCheckBox.setChecked(true);
 		onSelected(helper, position, view);
-		if (mOnSelectListener != null) {
-			mOnSelectListener.onSelected(mSelectedList);
+		if (mConfigeration.getOnSelectListener() != null) {
+			mConfigeration.getOnSelectListener().onSelected(mConfigeration.getSelectedList());
 		}
 	}
 
@@ -199,7 +175,7 @@ public abstract class BaseSelectAdapter<T, B extends BaseSelectAdapter.SelecteVi
 	 */
 	public void onSelected(B helper, int position, View view) {
 		Log.d("thf", "onSelected " + position);
-		Log.d("thf", "onSelectedViews " + mSelectedList.toString() + "," + position);
+		Log.d("thf", "onSelectedViews " + mConfigeration.getSelectedList().toString() + "," + position);
 	}
 
 	/**
@@ -232,22 +208,13 @@ public abstract class BaseSelectAdapter<T, B extends BaseSelectAdapter.SelecteVi
 	 * @param set
 	 */
 	public void setSelectedList(Set<Integer> set) {
-		mSelectedList.clear();
+		mConfigeration.getSelectedList().clear();
 		if (set != null) {
-			mSelectedList.addAll(set);
+			mConfigeration.getSelectedList().addAll(set);
 		}
 		notifyDataSetChanged();
 	}
 
-
-	/**
-	 * 设置最大选中条目
-	 *
-	 * @param selectedMax
-	 */
-	public void setSelectedMax(double selectedMax) {
-		mSelectedMax = selectedMax;
-	}
 
 	/**
 	 * 获取被选中的条目
@@ -255,36 +222,17 @@ public abstract class BaseSelectAdapter<T, B extends BaseSelectAdapter.SelecteVi
 	 * @return 返回选中的条目
 	 */
 	public Set<Integer> getSelectedList() {
-		return mSelectedList;
+		return mConfigeration.getSelectedList();
 	}
 
-
-	/**
-	 * 设置选中监听事件
-	 *
-	 * @param onSelectListener
-	 */
-	public void setOnSelectListener(OnSelectListener onSelectListener) {
-		mOnSelectListener = onSelectListener;
-	}
-
-
-	/**
-	 * 设置条目点击回调事件
-	 *
-	 * @param onTagClickListener
-	 */
-	public void setOnTagClickListener(OnTagClickListener<B> onTagClickListener) {
-		mOnTagClickListener = onTagClickListener;
-	}
 
 	/**
 	 * 全选
 	 */
 	public void selectAll() {
-		mSelectedList.clear();
+		mConfigeration.getSelectedList().clear();
 		for (int i = 0; i < mData.size(); i++) {
-			mSelectedList.add(i);
+			mConfigeration.getSelectedList().add(i);
 		}
 		notifyDataSetChanged();
 	}
@@ -293,7 +241,7 @@ public abstract class BaseSelectAdapter<T, B extends BaseSelectAdapter.SelecteVi
 	 * 全部不选
 	 */
 	public void unSelectAll() {
-		mSelectedList.clear();
+		mConfigeration.getSelectedList().clear();
 		notifyDataSetChanged();
 	}
 
@@ -303,18 +251,15 @@ public abstract class BaseSelectAdapter<T, B extends BaseSelectAdapter.SelecteVi
 	public void inverseSelection() {
 		HashSet<Integer> copySet = new HashSet<>();
 		for (int i = 0; i < mData.size(); i++) {
-			if (!mSelectedList.contains(i)) {
+			if (!mConfigeration.getSelectedList().contains(i)) {
 				copySet.add(i);
 			}
 		}
-		mSelectedList.clear();
-		mSelectedList.addAll(copySet);
+		mConfigeration.getSelectedList().clear();
+		mConfigeration.getSelectedList().addAll(copySet);
 		notifyDataSetChanged();
 	}
 
-	public void setForceHasOne(boolean forceHasOne) {
-		this.forceHasOne = forceHasOne;
-	}
 
 	static class SelecteViewHolder extends BaseViewHolder {
 		public CheckBox mCheckBox;
@@ -330,7 +275,4 @@ public abstract class BaseSelectAdapter<T, B extends BaseSelectAdapter.SelecteVi
 		}
 	}
 
-	public void setNotAssociate(boolean notAssociate) {
-		isNotAssociate = notAssociate;
-	}
 }
