@@ -8,6 +8,7 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.LinearLayout;
+import android.widget.Toast;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -33,20 +34,45 @@ public class MainActivity extends AppCompatActivity {
 			mData.add(testBean);
 		}
 		RecyclerView recyclerView = findViewById(R.id.recycler_view);
-		mConfigeration = new SelectAdapterConfigeration.Builder()
+		/*mConfigeration = new SelectAdapterConfigeration.Builder()
 				.withSelectedMax(1)
-				.withForceHasOne(false)
+				.withForceHasOne(true)
 				.withIsNotAssociate(false)
+				*//*.withOnTagClickListener(new SelectAdapterConfigeration.OnTagClickListener() {
+					@Override
+					public boolean onTagClick(BaseSelectAdapter2.SelecteViewHolder selecteViewHolder, int position) {
+						Toast.makeText(MainActivity.this, "Tag", Toast.LENGTH_SHORT).show();
+						return false;
+					}
+				})*//*
+				.withOnSelectListener(new SelectAdapterConfigeration.OnSelectListener() {
+					@Override
+					public void onSelected(Set<Integer> selectPosSet) {
+						Toast.makeText(MainActivity.this, selectPosSet.toString(), Toast.LENGTH_SHORT).show();
+					}
+				})
 				.build();
 		mAdapter2 = new MyAdapter2(R.layout.adapter_item_base_single, mData, mConfigeration);
-		mAdapter2.bindToRecyclerView(recyclerView);
-		/*mLinearLayout = findViewById(R.id.ll);
-		mAdapter = new MyAdapter(R.layout.adapter_item_base_single, mData);
-		mAdapter.setSelectedMax(1);
-		mAdapter.setSelectedList(1);
-		mAdapter.setForceHasOne(true);
-		mAdapter.setNotAssociate(false);
-		mAdapter.bindToRecyclerView(recyclerView);*/
+		mAdapter2.bindToRecyclerView(recyclerView);*/
+		mLinearLayout = findViewById(R.id.ll);
+		mAdapter = new MyAdapter(R.layout.adapter_item_base_single, mData,R.id.checkbox)
+				.setSelectedMax(1)
+				.setForceHasOne(true)
+				.setNotAssociate(false)
+				/*.setOnSelectListener(new BaseSelectAdapter.OnSelectListener() {
+					@Override
+					public void onSelected(Set<Integer> selectPosSet) {
+						Toast.makeText(MainActivity.this, selectPosSet.toString(), Toast.LENGTH_SHORT).show();
+					}
+				})*/
+				.setOnCancelSelectedListener(new BaseSelectAdapter.OnCancelSelectedListener() {
+					@Override
+					public void onCancelSelected(int position) {
+						Toast.makeText(MainActivity.this, position+"", Toast.LENGTH_SHORT).show();
+
+					}
+				});
+		mAdapter.bindToRecyclerView(recyclerView);
 	}
 
 
@@ -72,18 +98,18 @@ public class MainActivity extends AppCompatActivity {
 	public boolean onOptionsItemSelected(MenuItem item) {
 		switch (item.getItemId()) {
 			case R.id.single:
-				mAdapter2.unSelectAll();
-				mConfigeration.setSelectedMax(1);
+				mAdapter.unSelectAll();
+				mAdapter.setSelectedMax(1);
 				mLinearLayout.setVisibility(View.GONE);
 				break;
 			case R.id.more:
-				mAdapter2.unSelectAll();
-				mConfigeration.setSelectedMax(-1);
+				mAdapter.unSelectAll();
+				mAdapter.setSelectedMax(-1);
 				mLinearLayout.setVisibility(View.VISIBLE);
 				break;
 			case R.id.limit:
-				mAdapter2.unSelectAll();
-				mConfigeration.setSelectedMax(3);
+				mAdapter.unSelectAll();
+				mAdapter.setSelectedMax(3);
 				mLinearLayout.setVisibility(View.GONE);
 				break;
 			default:

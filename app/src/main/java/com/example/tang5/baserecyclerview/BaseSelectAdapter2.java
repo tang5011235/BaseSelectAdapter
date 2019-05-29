@@ -24,14 +24,6 @@ public abstract class BaseSelectAdapter2<T, B extends BaseSelectAdapter2.Selecte
 	 * 出发事件id
 	 */
 	private int selectViewId = -1;
-	/**
-	 * 当为当选的时候强行选择一个
-	 */
-	private boolean forceHasOne = true;
-	/**
-	 * 未关联状态  ---点击item时候不将点击事件传递给checkbox 而是checkbox自身处理自己的事件
-	 */
-	private boolean isNotAssociate = true;
 
 	public BaseSelectAdapter2(int layoutResId, @Nullable List<T> data, SelectAdapterConfigeration configeration) {
 		super(layoutResId, data);
@@ -63,7 +55,7 @@ public abstract class BaseSelectAdapter2<T, B extends BaseSelectAdapter2.Selecte
 		} else {
 			helper.setChecked(selectViewId, false);
 		}
-		if (isNotAssociate) {
+		if (mConfigeration.isNotAssociate()) {
 			helper.mCheckBox.setOnClickListener(new View.OnClickListener() {
 				@Override
 				public void onClick(View v) {
@@ -101,10 +93,11 @@ public abstract class BaseSelectAdapter2<T, B extends BaseSelectAdapter2.Selecte
 	 */
 	private void doSelect(B helper, CheckBox child, int position) {
 		boolean isChecked = !child.isChecked();
-		if (isNotAssociate) {
+		if (mConfigeration.isNotAssociate()) {
 			//如果为未关联状态需要改变checked状态 当checkbox从以种状态过度到另一种状态的时候是相反的
 			isChecked = !isChecked;
 		}
+		//选中状态逻辑处理
 		if (isChecked) {
 			//处理max_select=1的情况
 			if (mConfigeration.getSelectedMax() == 1 && mConfigeration.getSelectedList().size() == 1) {
@@ -126,9 +119,13 @@ public abstract class BaseSelectAdapter2<T, B extends BaseSelectAdapter2.Selecte
 				setChildChecked(helper, position, child);
 				mConfigeration.getSelectedList().add(position);
 			}
+
+			if (mConfigeration.getOnSelectListener() != null) {
+				mConfigeration.getOnSelectListener().onSelected(mConfigeration.getSelectedList());
+			}
 		} else {
 			//取消选中按钮逻辑
-			if (forceHasOne && mConfigeration.getSelectedMax() == 1) {
+			if (mConfigeration.isForceHasOne() && mConfigeration.getSelectedMax() == 1) {
 
 			} else {
 				setChildUnChecked(helper, position, child);
@@ -159,9 +156,6 @@ public abstract class BaseSelectAdapter2<T, B extends BaseSelectAdapter2.Selecte
 	private void setChildChecked(B helper, int position, View view) {
 		helper.mCheckBox.setChecked(true);
 		onSelected(helper, position, view);
-		if (mConfigeration.getOnSelectListener() != null) {
-			mConfigeration.getOnSelectListener().onSelected(mConfigeration.getSelectedList());
-		}
 	}
 
 	public abstract void customerConver(final BaseViewHolder helper, T item);

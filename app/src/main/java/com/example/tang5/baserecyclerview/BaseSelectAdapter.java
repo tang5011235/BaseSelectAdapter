@@ -28,6 +28,10 @@ public abstract class BaseSelectAdapter<T, B extends BaseSelectAdapter.SelecteVi
 	 */
 	private OnSelectListener mOnSelectListener;
 	/**
+	 * 取消选中事件操作
+	 */
+	private OnCancelSelectedListener mOnCancelSelectedListener;
+	/**
 	 * 点击事件操作，先于执行刷新
 	 */
 	private OnTagClickListener mOnTagClickListener;
@@ -52,6 +56,10 @@ public abstract class BaseSelectAdapter<T, B extends BaseSelectAdapter.SelecteVi
 		void onSelected(Set<Integer> selectPosSet);
 	}
 
+	public interface OnCancelSelectedListener {
+		void onCancelSelected(int position);
+	}
+
 	public interface OnTagClickListener<B extends BaseSelectAdapter.SelecteViewHolder> {
 		boolean onTagClick(B b, int position);
 	}
@@ -61,52 +69,61 @@ public abstract class BaseSelectAdapter<T, B extends BaseSelectAdapter.SelecteVi
 		super(layoutResId, data);
 
 		//设置默认值
-		if (selectViewId != 0) {
-			this.selectViewId = selectViewId;
-		} else {
-			this.selectViewId = R.id.checkbox;
-		}
+		this.selectViewId = selectViewId;
 	}
 
+	/**
+	 * 使用该构造函数需要将checkbox的id设置为checkbox
+	 *
+	 * @param layoutResId
+	 * @param data
+	 */
 	public BaseSelectAdapter(int layoutResId, @Nullable List<T> data) {
-		this(layoutResId, data, 0);
+		this(layoutResId, data, -1);
 	}
 
 	@Override
 	public B onCreateViewHolder(ViewGroup parent, int viewType) {
 		B helper = super.onCreateViewHolder(parent, viewType);
+		helper.setNotAssociate(isNotAssociate);
 		helper.setCheckBoxId(selectViewId);
 		return helper;
 	}
 
 	@Override
 	protected void convert(final B helper, T item) {
-		Log.e(TAG, "convert: " + System.currentTimeMillis());
 		if (mSelectedList.contains(helper.getAdapterPosition())) {
-			helper.setChecked(selectViewId, true);
+			helper.mCheckBox.setChecked(true);
 		} else {
-			helper.setChecked(selectViewId, false);
+			helper.mCheckBox.setChecked(false);
 		}
 		if (isNotAssociate) {
 			helper.mCheckBox.setOnClickListener(new View.OnClickListener() {
 				@Override
 				public void onClick(View v) {
+					boolean isDoNextOperation = true;
 					//执行点击事件
 					if (mOnTagClickListener != null) {
-						mOnTagClickListener.onTagClick(helper, helper.getAdapterPosition());
+						//返回true代表继续操作 false则不执行doselect
+						isDoNextOperation = mOnTagClickListener.onTagClick(helper, helper.getAdapterPosition());
 					}
-					doSelect(helper, helper.mCheckBox, helper.getAdapterPosition());
+					if (isDoNextOperation) {
+						doSelect(helper, helper.mCheckBox, helper.getAdapterPosition());
+					}
 				}
 			});
 		} else {
 			helper.itemView.setOnClickListener(new View.OnClickListener() {
 				@Override
 				public void onClick(View v) {
+					boolean isDoNextOperation = true;
 					//执行点击事件
 					if (mOnTagClickListener != null) {
-						mOnTagClickListener.onTagClick(helper, helper.getAdapterPosition());
+						isDoNextOperation = mOnTagClickListener.onTagClick(helper, helper.getAdapterPosition());
 					}
-					doSelect(helper, helper.mCheckBox, helper.getAdapterPosition());
+					if (isDoNextOperation) {
+						doSelect(helper, helper.mCheckBox, helper.getAdapterPosition());
+					}
 				}
 			});
 		}
@@ -140,7 +157,6 @@ public abstract class BaseSelectAdapter<T, B extends BaseSelectAdapter.SelecteVi
 				mSelectedList.add(position);
 				//内部通过handle刷新
 				notifyItemChanged(preIndex);
-				Log.e(TAG, "doSelect: " + System.currentTimeMillis());
 			} else {
 				if (mSelectedMax > 0 && mSelectedList.size() >= mSelectedMax) {
 					//当操作限制范围的时候 将超出的设置为不选中状态
@@ -150,14 +166,72 @@ public abstract class BaseSelectAdapter<T, B extends BaseSelectAdapter.SelecteVi
 				setChildChecked(helper, position, child);
 				mSelectedList.add(position);
 			}
+			//选中事件监听
+			if (mOnSelectListener != null) {
+				mOnSelectListener.onSelected(mSelectedList);
+			}
 		} else {
 			//取消选中按钮逻辑
 			if (forceHasOne && mSelectedMax == 1) {
-				
-			}else {
+				//当为强制选中一个 当一选择模式下不执行操作
+				if (isNotAssociate) {
+					helper.mCheckBox.setChecked(true);
+				}
+			} else {
 				setChildUnChecked(helper, position, child);
 				mSelectedList.remove(position);
+				//取消事件监听  当选当一个check切换到另外一个check是侯不会执行，只有当取消当前选中的checkbox才会起作用
+				if (mOnCancelSelectedListener != null) {
+					mOnCancelSelectedListener.onCancelSelected(position);
+				}
 			}
+		}
+	}
+
+	static class SelecteViewHolder extends BaseViewHolder {
+		CheckBox mCheckBox;
+		private boolean isNotAsssociate = true;
+
+		public SelecteViewHolder(View view) {
+			super(view);
+		}
+
+		void setCheckBoxId(int selecteViewId) {
+			if (selecteViewId == -1) {
+				mCheckBox = getCheckBox((ViewGroup) itemView);
+			} else {
+				mCheckBox = itemView.findViewById(selecteViewId);
+			}
+			if (mCheckBox == null) {
+				throw new IllegalArgumentException("can not find checkbox");
+			}
+
+			//改变可点击状态  当为关联的时候   item可点击  checkbox不可点击   否则相反
+			itemView.setClickable(!isNotAsssociate);
+			mCheckBox.setClickable(isNotAsssociate);
+		}
+
+		void setNotAssociate(boolean notAssociate) {
+			isNotAsssociate = notAssociate;
+		}
+
+		/**
+		 * 结束标志  1.0循环完毕 未找到  找到则返回checkbox
+		 *
+		 * @param viewGroup
+		 * @return
+		 */
+		private CheckBox getCheckBox(ViewGroup viewGroup) {
+			for (int i = 0; i < viewGroup.getChildCount(); i++) {
+				if (viewGroup.getChildAt(i) instanceof CheckBox) {
+					return (CheckBox) viewGroup.getChildAt(i);
+				} else {
+					if (viewGroup.getChildAt(i) instanceof ViewGroup) {
+						return getCheckBox((ViewGroup) viewGroup.getChildAt(i));
+					}
+				}
+			}
+			return null;
 		}
 	}
 
@@ -183,11 +257,14 @@ public abstract class BaseSelectAdapter<T, B extends BaseSelectAdapter.SelecteVi
 	private void setChildChecked(B helper, int position, View view) {
 		helper.mCheckBox.setChecked(true);
 		onSelected(helper, position, view);
-		if (mOnSelectListener != null) {
-			mOnSelectListener.onSelected(mSelectedList);
-		}
 	}
 
+	/**
+	 * 用户自定义操作
+	 *
+	 * @param helper
+	 * @param item
+	 */
 	public abstract void customerConver(final BaseViewHolder helper, T item);
 
 	/**
@@ -218,12 +295,13 @@ public abstract class BaseSelectAdapter<T, B extends BaseSelectAdapter.SelecteVi
 	 *
 	 * @param poses
 	 */
-	public void setSelectedList(int... poses) {
+	public BaseSelectAdapter<T, B> setSelectedList(int... poses) {
 		Set<Integer> set = new HashSet<>();
 		for (int pos : poses) {
 			set.add(pos);
 		}
 		setSelectedList(set);
+		return this;
 	}
 
 	/**
@@ -231,12 +309,13 @@ public abstract class BaseSelectAdapter<T, B extends BaseSelectAdapter.SelecteVi
 	 *
 	 * @param set
 	 */
-	public void setSelectedList(Set<Integer> set) {
+	public BaseSelectAdapter<T, B> setSelectedList(Set<Integer> set) {
 		mSelectedList.clear();
 		if (set != null) {
 			mSelectedList.addAll(set);
 		}
 		notifyDataSetChanged();
+		return this;
 	}
 
 
@@ -245,8 +324,9 @@ public abstract class BaseSelectAdapter<T, B extends BaseSelectAdapter.SelecteVi
 	 *
 	 * @param selectedMax
 	 */
-	public void setSelectedMax(double selectedMax) {
+	public BaseSelectAdapter<T, B> setSelectedMax(double selectedMax) {
 		mSelectedMax = selectedMax;
+		return this;
 	}
 
 	/**
@@ -264,8 +344,9 @@ public abstract class BaseSelectAdapter<T, B extends BaseSelectAdapter.SelecteVi
 	 *
 	 * @param onSelectListener
 	 */
-	public void setOnSelectListener(OnSelectListener onSelectListener) {
+	public BaseSelectAdapter<T, B> setOnSelectListener(OnSelectListener onSelectListener) {
 		mOnSelectListener = onSelectListener;
+		return this;
 	}
 
 
@@ -274,8 +355,20 @@ public abstract class BaseSelectAdapter<T, B extends BaseSelectAdapter.SelecteVi
 	 *
 	 * @param onTagClickListener
 	 */
-	public void setOnTagClickListener(OnTagClickListener<B> onTagClickListener) {
+	public BaseSelectAdapter<T, B> setOnTagClickListener(OnTagClickListener<B> onTagClickListener) {
 		mOnTagClickListener = onTagClickListener;
+		return this;
+	}
+
+	/**
+	 * 取消选择事件监听
+	 *
+	 * @param onCancelSelectedListener
+	 * @return
+	 */
+	public BaseSelectAdapter<T, B> setOnCancelSelectedListener(OnCancelSelectedListener onCancelSelectedListener) {
+		mOnCancelSelectedListener = onCancelSelectedListener;
+		return this;
 	}
 
 	/**
@@ -312,25 +405,44 @@ public abstract class BaseSelectAdapter<T, B extends BaseSelectAdapter.SelecteVi
 		notifyDataSetChanged();
 	}
 
-	public void setForceHasOne(boolean forceHasOne) {
+	/**
+	 * 设置 当为单一选择模式的时候是否强行选中一个
+	 *
+	 * @param forceHasOne
+	 * @param position    默认选中位置
+	 * @return
+	 */
+	public BaseSelectAdapter<T, B> setForceHasOne(boolean forceHasOne, int position) {
 		this.forceHasOne = forceHasOne;
+		if (position == -1) {
+			//为-1表示不选中
+			return this;
+		}
+		mSelectedList.clear();
+		mSelectedList.add(position);
+		return this;
 	}
 
-	static class SelecteViewHolder extends BaseViewHolder {
-		public CheckBox mCheckBox;
-		private int mCheckBoxId;
-
-		public SelecteViewHolder(View view) {
-			super(view);
-		}
-
-		public void setCheckBoxId(int checkBoxId) {
-			mCheckBoxId = checkBoxId;
-			mCheckBox = (CheckBox) itemView.findViewById(checkBoxId);
-		}
+	/**
+	 * 设置 当为单一选择模式的时候是否强行选中一个
+	 *
+	 * @param forceHasOne
+	 * @return
+	 */
+	public BaseSelectAdapter<T, B> setForceHasOne(boolean forceHasOne) {
+		setForceHasOne(forceHasOne, -1);
+		return this;
 	}
 
-	public void setNotAssociate(boolean notAssociate) {
+
+	/**
+	 * 设置关联性  checkbox与itemview的关联性
+	 *
+	 * @param notAssociate
+	 * @return
+	 */
+	public BaseSelectAdapter<T, B> setNotAssociate(boolean notAssociate) {
 		isNotAssociate = notAssociate;
+		return this;
 	}
 }
